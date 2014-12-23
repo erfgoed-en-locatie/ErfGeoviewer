@@ -94,7 +94,7 @@ function yearInSelection(year) {
 }
 
 function updateTime(collection) {
-    var formatDate, lustrums, index, data, lustrumKey, bar;
+    var formatDate, lustrums, index, data = [], lustrumKey, bar;
     
 	if (theGraph === undefined) {
         return;
@@ -122,7 +122,6 @@ function updateTime(collection) {
 	}
     
 	keys = getKeys(lustrums);
-    data = [];
 
 	for (key in keys.sort()) {
         if (keys.hasOwnProperty(key)) {
