@@ -7,8 +7,7 @@ var formatCount = d3.format(",.0f");
 
 function getKeys(obj, filter) {
     'use strict';
-    var name,
-        result = [];
+    var name, result = [];
 
     for (name in obj) {
         if (obj.hasOwnProperty(name)) {
