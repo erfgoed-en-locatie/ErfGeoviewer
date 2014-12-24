@@ -1,179 +1,164 @@
-var theGraph;
-var width, height;
-var x, y;
-var xAxis;
-var yAxis;
-var formatCount = d3.format(",.0f");
-
-function getKeys(obj, filter) {
-    'use strict';
-    var name, result = [];
-
-    for (name in obj) {
-        if (obj.hasOwnProperty(name)) {
-            if ((!filter || filter.test(name)) && obj.hasOwnProperty(name)) {
-                result[result.length] = name;
-            }
-        }
-    }
-    return result;
-}
+var width = 600,
+    height = 7,
+    x = d3.time.scale().range([0, width]),
+    y = d3.scale.linear().range([height, 0]),
+    xAxis,
+    yAxis,
+    formatCount = d3.format(",.0f"),
+    margin = {top: 10, right: 10, bottom: 100, left: 40},
+    margin2 = {top: 430, right: 10, bottom: 20, left: 40},
+    height2 = 500 - margin2.top - margin2.bottom,
+    theGraph = d3.select("#chart")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("defs")
+        .append("clipPath")
+        .attr("id", "clip")
+        .append("rect")
+        .attr("width", width)
+        .attr("height", height);
 
 function initGraph() {
     'use strict';
     
-	width = 600;
-	height = 70;
-	
-	x = d3.scale.ordinal().rangeRoundBands([0, width], 1);
-	y = d3.scale.linear().range([height, 0]);
+    var parseDate = d3.time.format("%b %Y").parse;
 
-	xAxis = d3.svg.axis()
-		.scale(x)
-		.orient("bottom")
-		.ticks(10);
+    var x2 = d3.time.scale().range([0, width]),
+        y2 = d3.scale.linear().range([height2, 0]);
 
-	yAxis = d3.svg.axis()
-		.scale(y)
-		.orient("left")
-		.ticks(1);
-	
-	var margin = {top: 8, right: 5, bottom: 50, left: 5};
-	theGraph = d3.select("#chart")
-		.append("svg")
-		.attr("width", width + margin.left + margin.right)
-		.attr("height", height + margin.top + margin.bottom)
-		.append("g")
-		.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-	
-	theGraph.append("g")
-        .attr("class", "x axis")
-        .attr("transform", "translate(0," + height + ")")
-        .call(xAxis)
-        .selectAll("text")
-        .style("text-anchor", "middle");
-}
+    var xAxis = d3.svg.axis()
+        .scale(x)
+        .orient("bottom");
 
-function onYearClick(year) {
-    'use strict';
-    var el, scope, index, barElement;
+    var xAxis2 = d3.svg.axis()
+        .scale(x2)
+        .orient("bottom");
+
+    var yAxis = d3.svg.axis()
+        .scale(y)
+        .orient("left");
+
+    var brush = d3.svg.brush()
+        .x(x2)
+        .on("brush", brushed);
     
-	el = document.getElementById('rootContainer');
-	scope = angular.element(el).scope();
-	index = scope.Repository.selectedYears.indexOf(year);
-	barElement = document.getElementById("bar_" + year);
-	
-	if (index !== -1) {//deselect
-		scope.Repository.selectedYears.splice(index, 1);
-		barElement.setAttribute("class", "bar");
-	} else {//select
-		scope.Repository.selectedYears.push(year);
-		barElement.setAttribute("class", "bar-selected");
-	}
-	scope.$apply();
+    var area = d3.svg.area()
+        .interpolate("monotone")
+        .x(function(d) { return x(d.date); })
+        .y0(height);
+        //.y1(function(d) { return y(d.price); });
 
-	//TODO: find better solution
-	if (window.location.href.indexOf('item') !== -1) {
-	    window.location.href = "#/";
-	}
+    var focus = theGraph.append("g")
+        .attr("class", "focus")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    var context = theGraph.append("g")
+        .attr("class", "context")
+        .attr("transform", "translate(" + margin2.left + "," + margin2.top + ")");
 }
 
-//returns if the year is enabled in the current selection
-function yearInSelection(year) {
-    'use strict';
-    var el, scope, index, barElement, inside;
-	
-    el = document.getElementById('rootContainer');
-	scope = angular.element(el).scope();
-	index = scope.Repository.selectedYears.indexOf(year);
-	barElement = document.getElementById("bar_" + year);
-	inside = (index !== -1);
-
-	return inside;
+function brushed() {
+    console.log('brushed');
+    //x.domain(brush.empty() ? x2.domain() : brush.extent());
+    //focus.select(".area").attr("d", area);
+    //focus.select(".x.axis").call(xAxis);
 }
 
 function updateTime(collection) {
-    var formatDate, lustrums, index, data = [], lustrumKey, bar;
+    'use strict';
+    var fullYear,
+        yearFound = false,
+        formatDate = d3.time.format("%Y-%m-%d+%H:%M"),
+        data = [],
+        bar;
     
-	if (theGraph === undefined) {
-        return;
-    }
-	
-	formatDate = d3.time.format("%Y-%m-%d+%H:%M");
-	lustrums = {1940: 0, 1945: 0, 1950: 0, 1955: 0, 1960: 0, 1965: 0, 1970: 0, 1975: 0, 1980: 0, 1985: 0, 1990: 0, 1995: 0, 2000: 0, 2005: 0, 2010: 0, 2015: 0};
-	
-	for (item in collection) {
-        if (collection.hasOwnProperty(item)) {
-            if (formatDate.parse(collection[item].date)) {
-                fullYear = formatDate.parse(collection[item].date).getFullYear()
-                if (fullYear > 0) {
-                    index = Math.floor(((fullYear - 1940) / 5));
-                    lustrumKey = 1940 + (index * 5);
+    for (var collectionItem in collection) {
 
-                    if(lustrumKey in lustrums) {
-                        lustrums[lustrumKey] += 1;
-                    } else {
-                        console.log("lustrum not found: " + fullYear + " " + lustrumKey);
-                    }
+        if (collection.hasOwnProperty(collectionItem) &&
+        formatDate.parse(collection[collectionItem].date) &&
+        formatDate.parse(collection[collectionItem].date).getFullYear() !== 0) {
+
+            fullYear = formatDate.parse(collection[collectionItem].date).getFullYear();
+            yearFound = false;
+
+            for (var dataItem in data) {
+                if (data[dataItem].year === fullYear) {
+                    yearFound = true;
+                    data[dataItem].count += 1;
+                    //break;
+                    //console.log('found ' + fullYear);
                 }
+            }
+
+            if (yearFound === false) {
+                data.push({year: fullYear, count: 1});
             }
         }
 	}
     
-	keys = getKeys(lustrums);
+    data = data.sort(function (a, b) {
+          if (a.year > b.year) {
+            return 1;
+          }
+          if (a.year < b.year) {
+            return -1;
+          }
+          // a must be equal to b
+          return 0;
+    });
+    //console.log('data length:' + data.length);
+    console.log(data);
 
-	for (key in keys.sort()) {
-        if (keys.hasOwnProperty(key)) {
-            data.push({'jaar': parseInt(keys[key], 10), 'aantal': lustrums[keys[key]]});
-        }
-	}
-		
-	x.domain(data.map(
+    //x.domain([data[0].year, data[data.length - 1].year]);
+    	x.domain(data.map(
         function (d) {
-            return d.jaar;
+            return d.year;
         }
     ));
     
     y.domain([0, d3.max(
         data,
         function (d) {
-            return d.aantal;
+            return d.count;
         }
     )]);
 
-	theGraph.selectAll("g").remove();
+    theGraph.selectAll("g").remove();
 	bar = theGraph.selectAll(".bar")
 		.data(data)
 		.remove()
 		.enter().append("g")
 		.attr("class", function (d) {
-			if (yearInSelection(d.jaar)) {
+			if (d.year) {
 				return "bar-selected";
 			} else {
 				return "bar";
 			}
         })
 		.attr("onclick", function (d) {
-            return "javascript:onYearClick('" + d.jaar + "')";
+            return "javascript:onYearClick('" + d.year + "')";
         })
 		.attr("id", function (d) {
-			return "bar_" + d.jaar;
+			return "bar_" + d.year;
         })
-		.attr("transform", function (d) { return "translate(" + x(d.jaar) + "," + y(d.aantal) + ")"; });
+		.attr("transform", function (d) { return "translate(" + x(d.year) + "," + y(d.count) + ")"; });
 		
 	bar.append("rect")
 		.attr("x", 1)
-		.attr("width", 25)
+		.attr("width", 5)
 		.attr("height", function (d) {
-            return height - y(d.aantal);
+            return height - y(d.count);
         });
 
-	bar.append("text")
+	/*
+    bar.append("text")
 		.attr("dy", ".75em")
 		.attr("y", 6)
-		.attr("x", x(data[0].jaar) / 2);
+		.attr("x", x(data[0].year) / 2);
+    */
 	
-	theGraph.append("g")
+    theGraph.append("g")
 		.attr("class", "x axis")
 		.attr("transform", "translate(0," + height + ")")
 		.call(xAxis);

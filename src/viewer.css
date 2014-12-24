@@ -275,3 +275,9 @@ button, input, select, textarea {
   width: 620px;
   height: 96px;
   margin: 10px; }
+
+.brush .extent {
+  stroke: #fff;
+  fill-opacity: .125;
+  shape-rendering: crispEdges;
+}
